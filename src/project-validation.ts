@@ -1,0 +1,7 @@
+import {z} from 'zod';
+import {type Project,cycleExists} from './planner-model.ts';
+const Item=z.object({id:z.string().min(1).max(100),title:z.string().min(1).max(200),kind:z.enum(['System','Scene','Asset','AI task']),status:z.enum(['Backlog','Ready','In progress','Done']),description:z.string().max(12000),priority:z.enum(['High','Medium','Low']),milestone:z.string().max(100),dependencies:z.array(z.string().max(100)).max(250),effort:z.number().min(0).max(999),criteria:z.string().max(12000),notes:z.string().max(12000)});
+export const ProjectSchema=z.object({id:z.string().max(100),name:z.string().min(1).max(100),idea:z.string().max(12000),dimension:z.enum(['2D','3D']),platform:z.enum(['PC','Mobile','Web','Console']),items:z.array(Item).max(250),milestones:z.array(z.object({id:z.string().max(100),title:z.string().min(1).max(100),target:z.string().max(10),description:z.string().max(4000)})).max(40)});
+export const WorkspaceSchema=z.object({projects:z.array(ProjectSchema).min(1).max(30),activeId:z.string().max(100)});
+
+export function validateProject(data:unknown):Project|null{const r=ProjectSchema.safeParse(data);if(!r.success)return null;const p=r.data as Project;const ids=new Set(p.items.map(i=>i.id)),mids=new Set(p.milestones.map(m=>m.id));if(ids.size!==p.items.length||mids.size!==p.milestones.length)return null;if(p.items.some(i=>(i.milestone&&!mids.has(i.milestone))||i.dependencies.some(d=>!ids.has(d)||d===i.id)))return null;if(p.items.some(i=>cycleExists(p.items,i.id,i.dependencies)))return null;return p;}

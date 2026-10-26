@@ -1,0 +1,12 @@
+import assert from 'node:assert/strict';
+import {readWorkspace,saveWorkspace,WORKSPACE_KEY} from '../src/workspace-storage.ts';
+import {demoWorkspace} from '../src/planner-model.ts';
+const data=new Map(),storage={getItem:k=>data.get(k)??null,setItem:(k,v)=>data.set(k,v)};
+assert.deepEqual(readWorkspace(storage),{workspace:null,revision:0});
+const ws=demoWorkspace();assert.equal(saveWorkspace(storage,ws,0),1);assert.deepEqual(readWorkspace(storage),{workspace:ws,revision:1});
+assert.throws(()=>saveWorkspace(storage,ws,0),/another tab/);
+ws.projects[0].name='Persistence verified';assert.equal(saveWorkspace(storage,ws,1),2);assert.equal(readWorkspace(storage).workspace.projects[0].name,'Persistence verified');
+const corrupt=structuredClone(ws);corrupt.projects[0].items[0].dependencies=[corrupt.projects[0].items[1].id];assert.throws(()=>saveWorkspace(storage,corrupt,2),/invalid records/);
+assert.throws(()=>saveWorkspace({getItem:storage.getItem,setItem(){throw Error('quota');}},ws,2),/storage is unavailable or full/);
+data.set(WORKSPACE_KEY,'invalid');assert.throws(()=>readWorkspace(storage));
+console.log('PASS: device persistence, revision conflicts, read-after-write, corrupt data rejection, cycle validation and storage failure handling.');
